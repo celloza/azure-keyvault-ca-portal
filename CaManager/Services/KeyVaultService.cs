@@ -7,12 +7,17 @@ using Azure.Security.KeyVault.Keys.Cryptography;
 
 namespace CaManager.Services
 {
+    /// <inheritdoc cref="IKeyVaultService"/>
     public class KeyVaultService : IKeyVaultService
     {
         private readonly CertificateClient _certificateClient;
         private readonly KeyClient _keyClient;
         private readonly IConfiguration _configuration;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="KeyVaultService"/> class.
+        /// </summary>
+        /// <param name="configuration">The application configuration containing KeyVault settings.</param>
         public KeyVaultService(IConfiguration configuration)
         {
             _configuration = configuration;
@@ -26,13 +31,14 @@ namespace CaManager.Services
             _keyClient = new KeyClient(new Uri(kvUrl), credential);
         }
 
+        /// <inheritdoc/>
         public async Task<List<KeyVaultCertificateWithPolicy>> GetCertificatesAsync()
         {
             var certs = new List<KeyVaultCertificateWithPolicy>();
             // Loop through all certificates
             await foreach (var certProp in _certificateClient.GetPropertiesOfCertificatesAsync())
             {
-                try 
+                try
                 {
                     // Get the full certificate policy and details
                     var cert = await _certificateClient.GetCertificateAsync(certProp.Name);
@@ -46,11 +52,13 @@ namespace CaManager.Services
             return certs;
         }
         
+        /// <inheritdoc/>
         public async Task<KeyVaultCertificateWithPolicy> GetCertificateAsync(string name)
         {
              return await _certificateClient.GetCertificateAsync(name);
         }
 
+        /// <inheritdoc/>
         public async Task<KeyVaultCertificateWithPolicy> CreateRootCaAsync(string subjectName, int validityMonths, int keySize)
         {
             var policy = new CertificatePolicy(WellKnownIssuerNames.Self, subjectName)
@@ -76,6 +84,7 @@ namespace CaManager.Services
             return await op.WaitForCompletionAsync();
         }
 
+        /// <inheritdoc/>
         public async Task<KeyVaultCertificateWithPolicy> ImportRootCaAsync(string certificateName, byte[] pfxBytes, string? password)
         {
             var importOptions = new ImportCertificateOptions(certificateName, pfxBytes)
@@ -86,6 +95,7 @@ namespace CaManager.Services
             return await _certificateClient.ImportCertificateAsync(importOptions);
         }
 
+        /// <inheritdoc/>
         public async Task<X509Certificate2> SignCsrAsync(string issuerCertName, byte[] csrBytes, int validityMonths)
         {
             // 1. Get Issuer Cert and Key ID
@@ -123,12 +133,21 @@ namespace CaManager.Services
 
             var signedCert = csr.Create(
                 issuerCert.SubjectName, // Issuer Name from KV Cert
-                generator, 
-                notBefore, 
-                notAfter, 
+                generator,
+                notBefore,
+                notAfter,
                 serialNumber);
 
             return signedCert;
+        }
+
+        /// <inheritdoc/>
+        public async Task DeleteCertificateAsync(string name)
+        {
+            var op = await _certificateClient.StartDeleteCertificateAsync(name);
+            await op.WaitForCompletionAsync();
+            // Purge? Ideally yes for a clean delete in non-production, but user didn't ask for purge.
+            // Soft-delete is standard in KV. We'll stick to Delete.
         }
     }
 }

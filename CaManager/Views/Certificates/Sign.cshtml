@@ -3,22 +3,37 @@
     var issuerName = ViewBag.IssuerName as string;
 }
 
-<h2>Sign CSR with @issuerName</h2>
-<p>Step 1: Upload the Certificate Signing Request (CSR).</p>
-
-<div class="row">
-    <div class="col-md-6">
-        <form asp-action="Inspect" enctype="multipart/form-data">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <input type="hidden" name="issuerName" value="@issuerName" />
-
-            <div class="mb-3">
-                <label class="form-label">CSR File (.csr, .pem)</label>
-                <input type="file" name="csrFile" class="form-control" required />
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-2-circle me-2"></i>Wizard Step 2: Upload CSR</h4>
             </div>
+            <div class="card-body">
+                <p class="text-muted mb-4">You are signing with Root CA: <strong class="text-light">@issuerName</strong></p>
+                
+                <form asp-action="Inspect" enctype="multipart/form-data">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                    <input type="hidden" name="issuerName" value="@issuerName" />
 
-            <button type="submit" class="btn btn-primary">Inspect CSR</button>
-            <a asp-action="Index" class="btn btn-link">Cancel</a>
-        </form>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-info"><i class="bi bi-file-earmark-code me-1"></i> Option A: Upload File</label>
+                            <input type="file" name="csrFile" class="form-control" accept=".csr,.pem" />
+                            <small class="form-text text-muted">Supports .csr and .pem files.</small>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label text-info"><i class="bi bi-card-text me-1"></i> Option B: Paste Content</label>
+                            <textarea name="csrText" class="form-control font-monospace" rows="8" placeholder="-----BEGIN CERTIFICATE REQUEST-----..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a asp-action="SignStart" class="btn btn-secondary me-md-2">Back</a>
+                        <button type="submit" class="btn btn-primary px-4">Next: Inspect CSR <i class="bi bi-arrow-right"></i></button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>

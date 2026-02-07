@@ -424,3 +424,18 @@ FodyWeavers.xsd
 *.tfvars
 *.tfplan
 .terraform.lock.hcl
+.terraform.tfstate.lock.info
+
+# Development
+**/appsettings.Development.json
+
+# Environment Specific Integration
+infra/vwan.tf
+infra/vwan_variables.tf
+infra/jumphost.tf
+
+# Explicit Project Ignores
+CaManager/bin/
+CaManager/obj/
+CaManager.Tests/bin/
+CaManager.Tests/obj/

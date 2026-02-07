@@ -1,0 +1,79 @@
+@page "/create"
+@inject IKeyVaultService _kvService
+@inject NavigationManager _nav
+@inject ISnackbar _snackbar
+@inject IConfiguration Configuration
+@using CaManager.Models
+
+<PageTitle>Create Root CA</PageTitle>
+
+<MudCard Class="mx-auto mt-5" Style="max-width: 600px;">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudText Typo="Typo.h5">Create New Root CA</MudText>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudCardContent>
+        <MudAlert Severity="Severity.Info" Class="mb-4">
+            This certificate will be created in Key Vault: <strong>@GetKeyVaultName()</strong>
+        </MudAlert>
+
+        <MudForm @ref="_form">
+            <MudTextField @bind-Value="_model.SubjectName" Label="Subject Name (CN)" HelperText="e.g. CN=My Component Root" Required="true" Variant="Variant.Outlined" Class="mb-4" />
+            
+            <div class="d-flex gap-4">
+                 <MudNumericField @bind-Value="_model.ValidityMonths" Label="Validity (Months)" Variant="Variant.Outlined" Min="1" />
+                 <MudSelect @bind-Value="_model.KeySize" Label="Key Size" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+                     <MudSelectItem Value="2048">RSA 2048</MudSelectItem>
+                     <MudSelectItem Value="4096">RSA 4096</MudSelectItem>
+                 </MudSelect>
+            </div>
+        </MudForm>
+    </MudCardContent>
+    <MudCardActions>
+        <MudButton OnClick="CreateCa" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Create Certificate</MudButton>
+        <MudButton Href="/" Variant="Variant.Text" Class="ml-2">Cancel</MudButton>
+    </MudCardActions>
+    <MudOverlay Visible="_loading" DarkBackground="true" Absolute="true">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    </MudOverlay>
+</MudCard>
+
+@code {
+    private CreateRootCaModel _model = new() { ValidityMonths = 240, KeySize = 2048 };
+    private MudForm? _form;
+    private bool _loading = false;
+
+    private string GetKeyVaultName()
+    {
+        var url = Configuration["KeyVaultUrl"];
+        if (string.IsNullOrEmpty(url)) return "Unknown";
+        try {
+            return new Uri(url).Host.Split('.')[0];
+        } catch {
+            return url;
+        }
+    }
+
+    private async Task CreateCa()
+    {
+        await _form!.Validate();
+        if (!_form.IsValid) return;
+
+        _loading = true;
+        try
+        {
+            await _kvService.CreateRootCaAsync(_model.SubjectName, _model.ValidityMonths, _model.KeySize);
+            _snackbar.Add("Certificate Created Successfully", Severity.Success);
+            _nav.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

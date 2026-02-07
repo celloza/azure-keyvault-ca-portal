@@ -1,0 +1,116 @@
+@page "/"
+@inject IKeyVaultService _kvService
+@inject ISnackbar _snackbar
+@using Azure.Security.KeyVault.Certificates
+
+@inject IDialogService _dialogService
+@inject IVersionCheckService _versionService
+@using CaManager.Services
+
+<PageTitle>Dashboard</PageTitle>
+
+@if (_versionInfo?.IsUpdateAvailable == true)
+{
+    <MudAlert Severity="Severity.Info" Variant="Variant.Filled" Class="mb-4">
+        <strong>Update Available:</strong> Version <code>@_versionInfo.LatestVersion</code> is available. You are running <code>@_versionInfo.CurrentVersion</code>. 
+        <MudLink Href="@_versionInfo.ReleaseUrl" Target="_blank" Color="Color.Inherit" Underline="Underline.Always">View Release Notes</MudLink>
+    </MudAlert>
+}
+
+<MudText Typo="Typo.h5" Class="mb-4">Root Certificate Authorities</MudText>
+
+<MudToolBar Class="mb-4">
+
+    <MudButton Href="/create" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Class="mr-2">Create New</MudButton>
+    <MudButton Href="/import" Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Upload">Import</MudButton>
+</MudToolBar>
+
+<MudTable Items="@_certs" Hover="true" Striped="false" Loading="@_loading" Elevation="3">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>Subject (CN)</MudTh>
+        <MudTh>Thumbprint</MudTh>
+        <MudTh>Expires On</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name"><strong>@context.Name</strong></MudTd>
+        <MudTd DataLabel="Subject">@context.Policy?.Subject</MudTd>
+        <MudTd DataLabel="Thumbprint" Style="font-family: monospace">
+            @(context.Properties.X509Thumbprint != null ? BitConverter.ToString(context.Properties.X509Thumbprint) : "N/A")
+        </MudTd>
+        <MudTd DataLabel="Expires On">
+            @if(context.Properties.ExpiresOn.HasValue) {
+                var days = (context.Properties.ExpiresOn.Value - DateTimeOffset.UtcNow).TotalDays;
+                <MudChip T="string" Color="@(days < 30 ? Color.Error : Color.Success)" Size="Size.Small">
+                    @context.Properties.ExpiresOn.Value.ToString("yyyy-MM-dd")
+                </MudChip>
+            }
+        </MudTd>
+        <MudTd DataLabel="Status">
+             @if(context.Properties.Enabled == true) {
+                <MudChip T="string" Color="Color.Primary" Size="Size.Small">Enabled</MudChip>
+            } else {
+                <MudChip T="string" Color="Color.Default" Size="Size.Small">Disabled</MudChip>
+            }
+        </MudTd>
+        <MudTd DataLabel="Actions">
+             <MudTooltip Text="Delete Certificate">
+                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => DeleteCert(context))"></MudIconButton>
+             </MudTooltip>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>No Root CAs found. Create one to get started.</MudText>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText>Loading...</MudText>
+    </LoadingContent>
+</MudTable>
+
+@code {
+    private List<KeyVaultCertificateWithPolicy> _certs = new();
+    private bool _loading = true;
+    private VersionCheckResult? _versionInfo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var versionTask = _versionService.CheckForUpdateAsync();
+        var certsTask = LoadCerts();
+
+        await Task.WhenAll(certsTask, versionTask);
+
+        _versionInfo = await versionTask;
+    }
+
+    private async Task LoadCerts()
+    {
+        _loading = true;
+        _certs = await _kvService.GetCertificatesAsync();
+        _loading = false;
+    }
+
+    private async Task DeleteCert(KeyVaultCertificateWithPolicy cert)
+    {
+        var parameters = new DialogParameters { ["CertificateName"] = cert.Name };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
+
+        var dialog = await _dialogService.ShowAsync<CaManager.Shared.DeleteCertificateDialog>("Delete Certificate", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            try 
+            {
+                 await _kvService.DeleteCertificateAsync(cert.Name);
+                 _snackbar.Add($"Certificate {cert.Name} deleted.", Severity.Success);
+                 await LoadCerts();
+            }
+            catch(Exception ex) 
+            {
+                _snackbar.Add($"Delete failed: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

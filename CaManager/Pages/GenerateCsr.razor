@@ -1,0 +1,169 @@
+@page "/generate"
+@using System.Security.Cryptography
+@using System.Security.Cryptography.X509Certificates
+@using System.Text
+@using CaManager.Models
+@inject IJSRuntime _js
+@inject ISnackbar _snackbar
+
+<PageTitle>Generate CSR</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Generate CSR</MudText>
+
+<MudPaper Class="pa-4">
+    <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+        <!-- Tab 1: Generate New Key Pair -->
+        <MudTabPanel Text="New Key Pair" Icon="@Icons.Material.Filled.Key">
+            <MudText Class="mb-4">Generate a new Private Key and Certificate Signing Request (CSR).</MudText>
+            
+            <MudGrid>
+                <MudItem xs="12">
+                     <MudTextField @bind-Value="_genModel.CommonName" Label="Common Name (CN)" Required="true" HelperText="e.g. myserver.local" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudTextField @bind-Value="_genModel.Organization" Label="Organization (O)" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudTextField @bind-Value="_genModel.OrganizationalUnit" Label="Organizational Unit (OU)" />
+                </MudItem>
+                <MudItem xs="4">
+                    <MudTextField @bind-Value="_genModel.Locality" Label="Locality (L)" />
+                </MudItem>
+                <MudItem xs="4">
+                    <MudTextField @bind-Value="_genModel.State" Label="State (S)" />
+                </MudItem>
+                <MudItem xs="4">
+                    <MudTextField @bind-Value="_genModel.Country" Label="Country (C)" MaxLength="2" />
+                </MudItem>
+                <MudItem xs="12">
+                     <MudSelect @bind-Value="_genModel.KeySize" Label="Key Size">
+                        <MudSelectItem Value="2048">2048-bit</MudSelectItem>
+                        <MudSelectItem Value="4096">4096-bit</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+            
+            <MudButton OnClick="GenerateNewKeyPair" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" StartIcon="@Icons.Material.Filled.Autorenew">Generate</MudButton>
+
+            @if (!string.IsNullOrEmpty(_generatedCsrPem))
+            {
+                <MudAlert Severity="Severity.Success" Class="mt-4">Successfully Generated!</MudAlert>
+                <MudTextField @bind-Value="_generatedCsrPem" Label="CSR (PEM)" Lines="6" ReadOnly="true" Variant="Variant.Outlined" Class="mt-2" Style="font-family: monospace" />
+                
+                <div class="d-flex gap-2 mt-2">
+                    <MudButton OnClick="@(() => DownloadFile("request.csr", _generatedCsrPem))" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FileDownload">Download CSR</MudButton>
+                    <MudButton OnClick="@(() => DownloadFile("private.key", _generatedKeyPem))" Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.VpnKey">Download Private Key</MudButton>
+                </div>
+            }
+        </MudTabPanel>
+
+        <!-- Tab 2: Use Existing Key -->
+        <MudTabPanel Text="Existing Private Key" Icon="@Icons.Material.Filled.Lock">
+           <MudText Class="mb-4">Paste an existing RSA Private Key (PEM) to generate a CSR for it.</MudText>
+           
+           <MudTextField @bind-Value="_existingKeyPem" Label="Private Key (PEM)" Lines="10" Variant="Variant.Outlined" Style="font-family: monospace" Placeholder="-----BEGIN PRIVATE KEY-----..." />
+           
+            <MudGrid Class="mt-2">
+                <MudItem xs="12">
+                     <MudTextField @bind-Value="_genModel.CommonName" Label="Common Name (CN)" Required="true" />
+                </MudItem>
+                 <MudItem xs="6">
+                    <MudTextField @bind-Value="_genModel.Organization" Label="Organization (O)" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudTextField @bind-Value="_genModel.OrganizationalUnit" Label="Organizational Unit (OU)" />
+                </MudItem>
+            </MudGrid>
+
+           <MudButton OnClick="GenerateFromExistingKey" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4">Generate CSR</MudButton>
+
+           @if (!string.IsNullOrEmpty(_existingKeyCsrPem))
+           {
+               <MudAlert Severity="Severity.Success" Class="mt-4">CSR Generated!</MudAlert>
+               <MudTextField @bind-Value="_existingKeyCsrPem" Label="CSR (PEM)" Lines="6" ReadOnly="true" Variant="Variant.Outlined" Class="mt-2" Style="font-family: monospace" />
+               <MudButton OnClick="@(() => DownloadFile("request.csr", _existingKeyCsrPem))" Variant="Variant.Outlined" Class="mt-2" StartIcon="@Icons.Material.Filled.FileDownload">Download CSR</MudButton>
+           }
+        </MudTabPanel>
+    </MudTabs>
+</MudPaper>
+
+@code {
+    private CsrGenerationModel _genModel = new();
+    
+    // New Key State
+    private string? _generatedCsrPem;
+    private string? _generatedKeyPem;
+
+    // Existing Key State
+    private string? _existingKeyPem;
+    private string? _existingKeyCsrPem;
+
+    private void GenerateNewKeyPair()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_genModel.CommonName))
+            {
+                _snackbar.Add("Common Name is required.", Severity.Warning);
+                return;
+            }
+
+            using var rsa = RSA.Create(_genModel.KeySize);
+            var req = CreateRequest(rsa);
+            
+            // Export Keys
+            _generatedKeyPem = new string(PemEncoding.Write("PRIVATE KEY", rsa.ExportPkcs8PrivateKey()));
+            _generatedCsrPem = new string(PemEncoding.Write("CERTIFICATE REQUEST", req.CreateSigningRequest()));
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void GenerateFromExistingKey()
+    {
+        try
+        {
+             if (string.IsNullOrWhiteSpace(_existingKeyPem))
+            {
+                _snackbar.Add("Please paste a private key.", Severity.Warning);
+                return;
+            }
+             if (string.IsNullOrWhiteSpace(_genModel.CommonName))
+            {
+                _snackbar.Add("Common Name is required.", Severity.Warning);
+                return;
+            }
+
+            using var rsa = RSA.Create();
+            rsa.ImportFromPem(_existingKeyPem); // .NET 5+ supports this directly
+            
+            var req = CreateRequest(rsa);
+            _existingKeyCsrPem = new string(PemEncoding.Write("CERTIFICATE REQUEST", req.CreateSigningRequest()));
+        }
+        catch (Exception ex)
+        {
+             _snackbar.Add($"Invalid Key: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private CertificateRequest CreateRequest(RSA rsa)
+    {
+        var subjectName = $"CN={_genModel.CommonName}";
+        if (!string.IsNullOrEmpty(_genModel.Organization)) subjectName += $", O={_genModel.Organization}";
+        if (!string.IsNullOrEmpty(_genModel.OrganizationalUnit)) subjectName += $", OU={_genModel.OrganizationalUnit}";
+        if (!string.IsNullOrEmpty(_genModel.Locality)) subjectName += $", L={_genModel.Locality}";
+        if (!string.IsNullOrEmpty(_genModel.State)) subjectName += $", S={_genModel.State}";
+        if (!string.IsNullOrEmpty(_genModel.Country)) subjectName += $", C={_genModel.Country}";
+
+        return new CertificateRequest(subjectName, rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+    }
+
+    private async Task DownloadFile(string filename, string? content)
+    {
+        if (string.IsNullOrEmpty(content)) return;
+        var bytes = Encoding.ASCII.GetBytes(content);
+        await _js.InvokeVoidAsync("downloadFileFromBase64", filename, Convert.ToBase64String(bytes));
+    }
+}

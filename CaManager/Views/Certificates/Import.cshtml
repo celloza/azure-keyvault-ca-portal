@@ -6,31 +6,40 @@
 
 <h2>Import Root CA PFX</h2>
 
-<div class="row">
+<div class="row justify-content-center mt-5">
     <div class="col-md-6">
-        <form asp-action="Import" enctype="multipart/form-data">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            
-            <div class="mb-3">
-                <label asp-for="Name" class="form-label">Certificate Name (in Key Vault)</label>
-                <input asp-for="Name" class="form-control" />
-                <span asp-validation-for="Name" class="text-danger"></span>
+        <div class="card shadow">
+            <div class="card-header bg-dark text-white border-secondary">
+                <h4 class="mb-0"><i class="bi bi-upload me-2"></i>Import Root CA PFX</h4>
             </div>
-            
-            <div class="mb-3">
-                <label asp-for="CertificateFile" class="form-label">PFX File</label>
-                <input asp-for="CertificateFile" type="file" class="form-control" accept=".pfx" />
-                <span asp-validation-for="CertificateFile" class="text-danger"></span>
-            </div>
+            <div class="card-body">
+                <form asp-action="Import" enctype="multipart/form-data">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Name" class="form-label text-info">Certificate Name (in Key Vault)</label>
+                        <input asp-for="Name" class="form-control" placeholder="my-root-ca" />
+                        <span asp-validation-for="Name" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="CertificateFile" class="form-label text-info">PFX File</label>
+                        <input asp-for="CertificateFile" type="file" class="form-control" accept=".pfx" />
+                        <span asp-validation-for="CertificateFile" class="text-danger"></span>
+                    </div>
 
-            <div class="mb-3">
-                <label asp-for="Password" class="form-label">PFX Password</label>
-                <input asp-for="Password" type="password" class="form-control" />
-                <span asp-validation-for="Password" class="text-danger"></span>
-            </div>
+                    <div class="mb-3">
+                        <label asp-for="Password" class="form-label text-info">PFX Password</label>
+                        <input asp-for="Password" type="password" class="form-control" />
+                        <span asp-validation-for="Password" class="text-danger"></span>
+                    </div>
 
-            <button type="submit" class="btn btn-primary">Import</button>
-            <a asp-action="Index" class="btn btn-link">Cancel</a>
-        </form>
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-upload me-2"></i>Import</button>
+                        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>

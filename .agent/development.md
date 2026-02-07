@@ -48,5 +48,10 @@ This folder contains context and rules for AI agents working on this repository.
 
 ### 3. Infrastructure
 
-- All Azure resources must be managed via Terraform in `infra/`.
 - Avoid "ClickOps" in the Azure Portal; if a change is needed, update the Terraform configuration.
+
+### 4. Versioning
+
+-   **Version Check**: The `GithubVersionCheckService` queries `api.github.com` for the latest release.
+-   **Local Development**: The `Result` defaults to `0.0.0-dev` when running locally (set in `CaManager.csproj`). This ensures you can verify the "Update Available" alert logic without needing a matching Git tag.
+-   **Release**: The CI/CD pipeline injects the actual version (Git Tag) during build.

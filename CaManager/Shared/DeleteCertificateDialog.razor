@@ -1,0 +1,51 @@
+@using CaManager.Services
+@using MudBlazor
+@inject ISnackbar Snackbar
+@using Azure.Security.KeyVault.Certificates
+
+<MudDialog>
+    <DialogContent>
+        @if (_step == 1)
+        {
+            <MudText>Are you sure you want to delete the certificate: <strong>@CertificateName</strong>?</MudText>
+            <MudText Typo="Typo.caption">This operation might affect services relying on this CA.</MudText>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-4">This action is <strong>irreversible</strong>.</MudAlert>
+            <MudText Class="mb-2">Please type <strong>@CertificateName</strong> to confirm.</MudText>
+            <MudTextField @bind-Value="_confirmName" Label="Certificate Name" Variant="Variant.Outlined" Immediate="true" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        @if (_step == 1)
+        {
+             <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="NextStep">Delete</MudButton>
+        }
+        else
+        {
+             <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="Submit" Disabled="@(_confirmName != CertificateName)">Confirm Delete</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance? MudDialog { get; set; }
+    [Parameter] public string? CertificateName { get; set; }
+
+    private int _step = 1;
+    private string? _confirmName;
+
+    void Cancel() => MudDialog?.Cancel();
+    
+    void NextStep() => _step = 2;
+
+    void Submit()
+    {
+        if (_confirmName == CertificateName)
+        {
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+}

@@ -6,34 +6,44 @@
 
 <h2>Create New Root CA in Key Vault</h2>
 
-<div class="row">
+<div class="row justify-content-center mt-5">
     <div class="col-md-6">
-        <form asp-action="Create">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            
-            <div class="mb-3">
-                <label asp-for="SubjectName" class="form-label"></label>
-                <input asp-for="SubjectName" class="form-control" />
-                <span asp-validation-for="SubjectName" class="text-danger"></span>
+        <div class="card shadow">
+            <div class="card-header bg-dark text-white border-secondary">
+                <h4 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Create New Root CA</h4>
             </div>
-            
-            <div class="mb-3">
-                <label asp-for="ValidityMonths" class="form-label"></label>
-                <input asp-for="ValidityMonths" class="form-control" />
-                <span asp-validation-for="ValidityMonths" class="text-danger"></span>
-            </div>
+            <div class="card-body">
+                <form asp-action="Create">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="SubjectName" class="form-label text-info">Subject Name (CN)</label>
+                        <input asp-for="SubjectName" class="form-control" placeholder="CN=My Root CA" />
+                        <span asp-validation-for="SubjectName" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="ValidityMonths" class="form-label text-info">Validity (Months)</label>
+                            <input asp-for="ValidityMonths" class="form-control" value="240" />
+                            <span asp-validation-for="ValidityMonths" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="KeySize" class="form-label text-info">Key Size</label>
+                            <select asp-for="KeySize" class="form-select">
+                                <option value="2048">RSA 2048 (Standard)</option>
+                                <option value="4096">RSA 4096 (Secure)</option>
+                            </select>
+                            <span asp-validation-for="KeySize" class="text-danger"></span>
+                        </div>
+                    </div>
 
-            <div class="mb-3">
-                <label asp-for="KeySize" class="form-label"></label>
-                <select asp-for="KeySize" class="form-select">
-                    <option value="2048">RSA 2048</option>
-                    <option value="4096">RSA 4096</option>
-                </select>
-                <span asp-validation-for="KeySize" class="text-danger"></span>
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-2"></i>Create Certificate</button>
+                        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
             </div>
-
-            <button type="submit" class="btn btn-primary">Create Certificate</button>
-            <a asp-action="Index" class="btn btn-link">Cancel</a>
-        </form>
+        </div>
     </div>
 </div>

@@ -1,0 +1,12 @@
+@using Microsoft.AspNetCore.Components.Authorization
+
+<AuthorizeView>
+    <Authorized>
+        <MudText Typo="Typo.body2" Class="mr-4">Hello, @context.User.Identity?.Name!</MudText>
+        @* Logout link needs to be a standard anchor or form submit for cookie auth *@
+        <MudLink Href="MicrosoftIdentity/Account/SignOut" Color="Color.Inherit">Sign out</MudLink>
+    </Authorized>
+    <NotAuthorized>
+        <MudLink Href="MicrosoftIdentity/Account/SignIn" Color="Color.Inherit">Sign in</MudLink>
+    </NotAuthorized>
+</AuthorizeView>

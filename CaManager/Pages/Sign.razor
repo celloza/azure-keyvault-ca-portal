@@ -1,0 +1,280 @@
+@using CaManager.Models
+@using System.Security.Cryptography
+@using System.Security.Cryptography.X509Certificates
+@using System.Text
+@using System.IO
+@using Azure.Security.KeyVault.Certificates
+
+@page "/sign"
+@page "/sign/{IssuerName}"
+@inject IKeyVaultService _kvService
+@inject ISnackbar _snackbar
+@inject IJSRuntime _js
+@inject NavigationManager _nav
+
+<PageTitle>Sign CSR</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Sign Certificate</MudText>
+
+<!-- Progress Stepper -->
+<MudTimeline TimelineOrientation="TimelineOrientation.Horizontal" TimelinePosition="TimelinePosition.Bottom" Class="mb-4 mt-16">
+    <MudTimelineItem Color="@GetStepColor(0)" Variant="Variant.Filled">
+        <ItemContent><MudText Color="@GetStepTextColor(0)" Typo="Typo.button" Style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); white-space: nowrap;">Select CA</MudText></ItemContent>
+    </MudTimelineItem>
+    <MudTimelineItem Color="@GetStepColor(1)" Variant="Variant.Filled">
+        <ItemContent><MudText Color="@GetStepTextColor(1)" Typo="Typo.button" Style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); white-space: nowrap;">Input CSR</MudText></ItemContent>
+    </MudTimelineItem>
+    <MudTimelineItem Color="@GetStepColor(2)" Variant="Variant.Filled">
+        <ItemContent><MudText Color="@GetStepTextColor(2)" Typo="Typo.button" Style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); white-space: nowrap;">Verify</MudText></ItemContent>
+    </MudTimelineItem>
+    <MudTimelineItem Color="@GetStepColor(3)" Variant="Variant.Filled">
+        <ItemContent><MudText Color="@GetStepTextColor(3)" Typo="Typo.button" Style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); white-space: nowrap;">Result</MudText></ItemContent>
+    </MudTimelineItem>
+</MudTimeline>
+
+<MudPaper Class="pa-4">
+    @if (_activeIndex == 0)
+    {
+        <!-- Step 1: Select CA -->
+        <MudText Class="mb-4">Choose the Root Certificate Authority that will sign your CSR.</MudText>
+        @if(_certs == null) {
+            <MudProgressCircular Indeterminate="true" />
+        } else {
+            <MudList T="KeyVaultCertificateWithPolicy" @bind-SelectedValue="_selectedCert" SelectionMode="SelectionMode.SingleSelection">
+                @foreach (var cert in _certs)
+                {
+                    <MudListItem Value="@cert" OnClick="@(() => SelectCa(cert))">
+                        <div class="d-flex justify-content-between align-center" style="width:100%">
+                            <div class="d-flex flex-column">
+                                <MudText Typo="Typo.body1" Color="Color.Primary"><strong>@cert.Name</strong></MudText>
+                                <MudText Typo="Typo.body2" Class="mt-1">@cert.Policy?.Subject</MudText>
+                            </div>
+                            <MudText Typo="Typo.caption" Class="ml-4" Style="font-family:monospace">
+                                @(cert.Properties.X509Thumbprint != null ? BitConverter.ToString(cert.Properties.X509Thumbprint) : "")
+                            </MudText>
+                        </div>
+                    </MudListItem>
+                }
+            </MudList>
+        }
+    }
+    else if (_activeIndex == 1)
+    {
+         <!-- Step 2: Input CSR -->
+         <MudText Class="mb-4">How would you like to provide the Certificate Signing Request?</MudText>
+         
+         <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+            <MudTabPanel Text="Upload File" Icon="@Icons.Material.Filled.UploadFile">
+                <MudText Class="mb-4">Upload a .csr or .pem file.</MudText>
+                <InputFile id="csrFileInput" OnChange="UploadFiles" hidden accept=".csr,.pem" />
+                <MudButton HtmlTag="label" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudUpload" for="csrFileInput">
+                    Browse File
+                </MudButton>
+                @if(!string.IsNullOrEmpty(_fileName)) {
+                    <MudText Typo="Typo.body2" Class="mt-2 text-success">Selected: @_fileName</MudText>
+                }
+            </MudTabPanel>
+            
+            <MudTabPanel Text="Paste Text" Icon="@Icons.Material.Filled.ContentPaste">
+                <MudTextField @bind-Value="_csrText" Label="Paste CSR Content (PEM)" Lines="8" Variant="Variant.Outlined" Style="font-family: monospace" Placeholder="-----BEGIN CERTIFICATE REQUEST-----..." />
+            </MudTabPanel>
+        </MudTabs>
+
+        <div class="d-flex justify-content-between mt-4">
+            <MudButton OnClick="GoBack" Variant="Variant.Text">Back</MudButton>
+            <MudButton OnClick="ProcessStep2" Variant="Variant.Filled" Color="Color.Primary">Next</MudButton>
+        </div>
+    }
+    else if (_activeIndex == 2)
+    {
+        <!-- Step 3: Verify -->
+         @if(_inspectModel != null) {
+             <MudText Typo="Typo.h6" Class="mb-2">Verify Request</MudText>
+             <MudPaper Class="pa-4 mb-4" Outlined="true">
+                 <MudSimpleTable Style="overflow-x: auto;">
+                     <tbody>
+                         <tr><td><strong>Issuer (CA)</strong></td><td>@_inspectModel.IssuerName</td></tr>
+                         <tr><td><strong>Subject</strong></td><td>@_inspectModel.SubjectDn</td></tr>
+                         <tr><td><strong>Public Key</strong></td><td>@_inspectModel.PublicKeyInfo</td></tr>
+                         <tr><td><strong>Algorithm</strong></td><td>@_inspectModel.SignatureAlgorithm</td></tr>
+                     </tbody>
+                 </MudSimpleTable>
+             </MudPaper>
+             
+             <MudNumericField @bind-Value="_validityMonths" Label="Validity (Months)" Variant="Variant.Outlined" Min="1" Class="mb-4" />
+             
+             <div class="d-flex justify-content-between">
+                 <MudButton OnClick="GoBack" Variant="Variant.Text">Back</MudButton>
+                 <MudButton OnClick="ExecuteSign" Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Check" Size="Size.Large">Sign Certificate</MudButton>
+             </div>
+         }
+    }
+    else if (_activeIndex == 3)
+    {
+        <!-- Step 4: Result -->
+        <div class="d-flex flex-column align-center justify-center pa-4">
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" Style="font-size: 64px;" />
+            <MudText Typo="Typo.h4" Class="mt-2">Success!</MudText>
+            <MudText Typo="Typo.body1" Class="mb-4">The certificate has been successfully signed.</MudText>
+            
+            <MudPaper Class="pa-4 mb-4" Outlined="true" Style="width: 100%; max-width: 600px;">
+                <MudSimpleTable>
+                     <tbody>
+                         <tr><td><strong>Subject</strong></td><td>@_inspectModel?.SubjectDn</td></tr>
+                         <tr><td><strong>Issuer</strong></td><td>@_inspectModel?.IssuerName</td></tr>
+                     </tbody>
+                </MudSimpleTable>
+            </MudPaper>
+
+            <div class="d-flex gap-2">
+                 <MudButton OnClick="DownloadCer" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Download">
+                    Download .CER
+                </MudButton>
+                 <MudButton OnClick="Reset" Variant="Variant.Outlined" Color="Color.Secondary">Start Over</MudButton>
+            </div>
+        </div>
+    }
+</MudPaper>
+
+@code {
+    [Parameter] public string? IssuerName { get; set; }
+
+    private int _activeIndex = 0;
+    private List<KeyVaultCertificateWithPolicy> _certs = new();
+    private KeyVaultCertificateWithPolicy? _selectedCert;
+    
+    // Step 2 Inputs
+    private string? _fileName;
+    private string? _csrText;
+    
+    // Step 3 Data
+    private InspectCsrModel? _inspectModel;
+    private int _validityMonths = 12;
+    
+    // Step 4 Data
+    private X509Certificate2? _finalCert;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _certs = await _kvService.GetCertificatesAsync();
+        if(!string.IsNullOrEmpty(IssuerName)) {
+             _selectedCert = _certs.FirstOrDefault(c => c.Name == IssuerName);
+             if(_selectedCert != null) {
+                 _activeIndex = 1;
+             }
+        }
+    }
+    
+    private Color GetStepColor(int stepIndex) => _activeIndex > stepIndex ? Color.Success : (_activeIndex == stepIndex ? Color.Primary : Color.Default);
+    private Color GetStepTextColor(int stepIndex) => _activeIndex == stepIndex ? Color.Primary : Color.Default;
+
+    private void SelectCa(KeyVaultCertificateWithPolicy cert) {
+        _selectedCert = cert;
+        IssuerName = cert.Name;
+        _activeIndex = 1; 
+    }
+
+    private async Task UploadFiles(InputFileChangeEventArgs e) {
+        var file = e.File;
+        _fileName = file.Name;
+        using var stream = new MemoryStream();
+        await file.OpenReadStream().CopyToAsync(stream);
+        _csrText = Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    private void GoBack() { if (_activeIndex > 0) _activeIndex--; }
+    
+    private void ProcessStep2()
+    {
+        // Check Text/File
+        if (!string.IsNullOrWhiteSpace(_csrText))
+        {
+            try
+            {
+                // Clean input
+                var text = _csrText.Trim();
+                byte[] derBytes;
+                if (text.Contains("-----BEGIN"))
+                {
+                    var sb = new StringBuilder();
+                    var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var line in lines)
+                    {
+                        if (!line.StartsWith("-----")) sb.Append(line.Trim());
+                    }
+                    derBytes = Convert.FromBase64String(sb.ToString());
+                }
+                else 
+                {
+                    derBytes = Convert.FromBase64String(text);
+                }
+                ParseCsr(derBytes);
+            }
+            catch (Exception ex)
+            {
+                _snackbar.Add($"The provided CSR could not be parsed. Please check that it is a valid PEM or Base64 encoded CSR. ({ex.Message})", Severity.Error);
+            }
+            return;
+        }
+
+        _snackbar.Add("Please provide a CSR.", Severity.Warning);
+    }
+    
+    private void ParseCsr(byte[] derBytes)
+    {
+         if (_selectedCert == null)
+         {
+             _snackbar.Add("Please select a CA first.", Severity.Error);
+             return;
+         }
+
+         var csr = CertificateRequest.LoadSigningRequest(derBytes, HashAlgorithmName.SHA256, CertificateRequestLoadOptions.UnsafeLoadCertificateExtensions);
+
+        _inspectModel = new InspectCsrModel
+        {
+            IssuerName = _selectedCert.Name,
+            SubjectDn = csr.SubjectName.Name ?? "Unknown",
+            PublicKeyInfo = csr.PublicKey.Oid.FriendlyName ?? "Unknown",
+            SignatureAlgorithm = csr.HashAlgorithm.Name ?? "Unknown",
+            CsrContentBase64 = Convert.ToBase64String(derBytes),
+            ValidityMonths = 12
+        };
+        _activeIndex = 2; // Move to Verify
+    }
+
+    private async Task ExecuteSign()
+    {
+        if (_inspectModel == null)
+        {
+            _snackbar.Add("No CSR to sign.", Severity.Error);
+            return;
+        }
+
+        try
+        {
+            var csrBytes = Convert.FromBase64String(_inspectModel.CsrContentBase64);
+            _finalCert = await _kvService.SignCsrAsync(_inspectModel.IssuerName, csrBytes, _validityMonths);
+            _activeIndex = 3; // Move to Result
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Add($"Signing Failed: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task DownloadCer()
+    {
+        if (_finalCert == null) return;
+        var bytes = _finalCert.Export(X509ContentType.Cert);
+        await _js.InvokeVoidAsync("downloadFileFromBase64", "signed-cert.cer", Convert.ToBase64String(bytes));
+    }
+
+    private void Reset()
+    {
+        _activeIndex = 1; // Go back to Input step (keep selected CA)
+        _csrText = "";
+        _fileName = "";
+        _inspectModel = null;
+        _finalCert = null;
+    }
+}

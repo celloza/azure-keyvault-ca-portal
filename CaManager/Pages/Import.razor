@@ -1,0 +1,95 @@
+@page "/import"
+@inject IKeyVaultService _kvService
+@inject NavigationManager _nav
+@inject ISnackbar _snackbar
+@inject IConfiguration Configuration
+@using CaManager.Models
+@using System.IO
+
+<PageTitle>Import Root CA</PageTitle>
+
+<MudCard Class="mx-auto mt-5" Style="max-width: 600px;">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudText Typo="Typo.h5">Import Root CA PFX</MudText>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudCardContent>
+        <MudAlert Severity="Severity.Info" Class="mb-4">
+            This certificate will be imported into Key Vault: <strong>@GetKeyVaultName()</strong>
+        </MudAlert>
+
+         <MudForm @ref="_form">
+             <MudTextField @bind-Value="_name" Label="Certificate Name (Key Vault)" Required="true" Variant="Variant.Outlined" Class="mb-4" />
+             
+             <InputFile id="pfxInput" OnChange="UploadFile" hidden accept=".pfx" />
+             <MudButton HtmlTag="label"
+                        Variant="Variant.Outlined"
+                        Color="Color.Primary"
+                        StartIcon="@Icons.Material.Filled.CloudUpload"
+                        for="pfxInput"
+                        Class="mb-4">
+                 Select PFX File
+             </MudButton>
+             @if(!string.IsNullOrEmpty(_fileName)) {
+                 <MudText Typo="Typo.caption" Class="mb-4 text-success">Selected: @_fileName</MudText>
+             }
+
+             <MudTextField @bind-Value="_password" Label="PFX Password" InputType="InputType.Password" Variant="Variant.Outlined" />
+         </MudForm>
+    </MudCardContent>
+    <MudCardActions>
+        <MudButton OnClick="ExecuteImport" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Import</MudButton>
+        <MudButton Href="/" Variant="Variant.Text" Class="ml-2">Cancel</MudButton>
+    </MudCardActions>
+     <MudOverlay Visible="_loading" DarkBackground="true" Absolute="true">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    </MudOverlay>
+</MudCard>
+
+@code {
+    private MudForm? _form;
+    private string? _name;
+    private string? _password;
+    private string? _fileName;
+    private IBrowserFile? _file;
+    private bool _loading = false;
+
+    private string GetKeyVaultName()
+    {
+        var url = Configuration["KeyVaultUrl"];
+        if (string.IsNullOrEmpty(url)) return "Unknown";
+        try {
+            return new Uri(url).Host.Split('.')[0];
+        } catch {
+            return url;
+        }
+    }
+
+    private void UploadFile(InputFileChangeEventArgs e) {
+        _file = e.File;
+        _fileName = e.File.Name;
+    }
+
+    private async Task ExecuteImport() {
+        if(string.IsNullOrEmpty(_name) || _file == null) {
+            _snackbar.Add("Please provide a name and select a file.", Severity.Warning);
+            return;
+        }
+
+        _loading = true;
+        try {
+            using var stream = new MemoryStream();
+            await _file.OpenReadStream().CopyToAsync(stream);
+            var bytes = stream.ToArray();
+
+            await _kvService.ImportRootCaAsync(_name, bytes, _password);
+            _snackbar.Add("Certificate Imported Successfully", Severity.Success);
+            _nav.NavigateTo("/");
+        } catch(Exception ex) {
+            _snackbar.Add(ex.Message, Severity.Error);
+        } finally {
+            _loading = false;
+        }
+    }
+}

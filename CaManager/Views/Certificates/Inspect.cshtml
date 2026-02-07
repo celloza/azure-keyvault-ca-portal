@@ -4,37 +4,50 @@
     ViewData["Title"] = "Inspect CSR";
 }
 
-<h2>Confirm & Sign</h2>
-<p>Step 2: Verify the CSR details before signing.</p>
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0"><i class="bi bi-3-circle me-2"></i>Wizard Step 3: Verify & Sign</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-4">Please verify the CSR details extracted from your upload. If everything looks correct, proceed to sign.</p>
 
-<div class="card mb-4">
-    <div class="card-header">CSR Details</div>
-    <div class="card-body">
-        <dl class="row">
-            <dt class="col-sm-3">Issuer</dt>
-            <dd class="col-sm-9">@Model.IssuerName</dd>
+                <div class="card mb-4 bg-dark border-secondary">
+                    <div class="card-header border-secondary"><i class="bi bi-info-circle me-2"></i>CSR Details</div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-3 text-secondary">Issuer</dt>
+                            <dd class="col-sm-9 text-light">@Model.IssuerName</dd>
 
-            <dt class="col-sm-3">Subject DN</dt>
-            <dd class="col-sm-9">@Model.SubjectDn</dd>
+                            <dt class="col-sm-3 text-secondary">Subject DN</dt>
+                            <dd class="col-sm-9 text-light">@Model.SubjectDn</dd>
 
-            <dt class="col-sm-3">Public Key</dt>
-            <dd class="col-sm-9">@Model.PublicKeyInfo</dd>
+                            <dt class="col-sm-3 text-secondary">Public Key</dt>
+                            <dd class="col-sm-9 text-light">@Model.PublicKeyInfo</dd>
 
-            <dt class="col-sm-3">Algorithm</dt>
-            <dd class="col-sm-9">@Model.SignatureAlgorithm</dd>
-        </dl>
+                            <dt class="col-sm-3 text-secondary">Algorithm</dt>
+                            <dd class="col-sm-9 text-light">@Model.SignatureAlgorithm</dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <form asp-action="ExecuteSign">
+                    <input type="hidden" asp-for="IssuerName" />
+                    <input type="hidden" asp-for="CsrContentBase64" />
+                    
+                    <div class="mb-4 col-md-4">
+                        <label asp-for="ValidityMonths" class="form-label text-info"><i class="bi bi-calendar-check me-2"></i>Validity (Months)</label>
+                        <input asp-for="ValidityMonths" class="form-control" />
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a asp-action="Sign" asp-route-id="@Model.IssuerName" class="btn btn-secondary me-md-2">Back</a>
+                        <button type="submit" class="btn btn-success px-4" onclick="return confirm('Are you sure you want to sign this certificate?');"><i class="bi bi-pen me-2"></i>Confirm & Sign</button>
+                        <a asp-action="Index" class="btn btn-outline-danger ms-2">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
-
-<form asp-action="ExecuteSign">
-    <input type="hidden" asp-for="IssuerName" />
-    <input type="hidden" asp-for="CsrContentBase64" />
-    
-    <div class="mb-3 col-md-4">
-        <label asp-for="ValidityMonths" class="form-label"></label>
-        <input asp-for="ValidityMonths" class="form-control" />
-    </div>
-
-    <button type="submit" class="btn btn-danger">Confirm & Sign</button>
-    <a asp-action="Index" class="btn btn-secondary">Cancel</a>
-</form>

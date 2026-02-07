@@ -1,0 +1,40 @@
+@model List<Azure.Security.KeyVault.Certificates.KeyVaultCertificateWithPolicy>
+@{
+    ViewData["Title"] = "Sign CSR - Select Root CA";
+}
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-1-circle me-2"></i>Wizard Step 1: Select Signing Authority</h4>
+            </div>
+            <div class="card-body">
+                <p class="card-text mb-4 text-muted">Choose the Root Certificate Authority that will sign your Certificate Signing Request (CSR).</p>
+
+                <div class="list-group">
+                    @foreach (var cert in Model)
+                    {
+                        <a asp-action="Sign" asp-route-id="@cert.Name" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-1 text-primary">@cert.Name</h5>
+                                <small class="text-muted">Thumbprint: @(cert.Properties.X509Thumbprint != null ? BitConverter.ToString(cert.Properties.X509Thumbprint) : "N/A")</small>
+                            </div>
+                            <span class="badge bg-primary rounded-pill"><i class="bi bi-arrow-right"></i> Select</span>
+                        </a>
+                    }
+                </div>
+                
+                @if (Model.Count == 0)
+                {
+                    <div class="alert alert-warning">
+                        No Root CAs found. Please <a asp-action="Create">create one</a> first.
+                    </div>
+                }
+            </div>
+            <div class="card-footer text-end">
+                <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+            </div>
+        </div>
+    </div>
+</div>
