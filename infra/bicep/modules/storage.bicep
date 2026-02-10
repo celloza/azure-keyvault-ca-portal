@@ -72,7 +72,7 @@ resource roleStorageBlobDataContributor 'Microsoft.Authorization/roleDefinitions
 
 resource roleStorageTableDataContributor 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
   scope: subscription()
-  name: '0a9a7e1f-b9d0-4cc4-a60d-0319cd74161d'
+  name: '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
 }
 
 resource roleAssignmentBlob 'Microsoft.Authorization/roleAssignments@2022-04-01' = {

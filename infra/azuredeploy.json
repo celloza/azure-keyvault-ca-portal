@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "7230518086476267423"
+      "templateHash": "17076179705642074840"
     }
   },
   "parameters": {
@@ -422,7 +422,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "11728334127253657027"
+              "templateHash": "4193498333351385393"
             }
           },
           "parameters": {
@@ -534,9 +534,9 @@
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
               "scope": "[resourceId('Microsoft.Storage/storageAccounts', format('stcamanager{0}', parameters('suffix')))]",
-              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', format('stcamanager{0}', parameters('suffix'))), parameters('appIdentityPrincipalId'), subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0a9a7e1f-b9d0-4cc4-a60d-0319cd74161d'))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', format('stcamanager{0}', parameters('suffix'))), parameters('appIdentityPrincipalId'), subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'))]",
               "properties": {
-                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0a9a7e1f-b9d0-4cc4-a60d-0319cd74161d')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3')]",
                 "principalId": "[parameters('appIdentityPrincipalId')]",
                 "principalType": "ServicePrincipal"
               },
