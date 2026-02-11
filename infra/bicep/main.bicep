@@ -7,13 +7,11 @@ param vwanHubRg string
 
 var suffix = uniqueString(resourceGroup().id)
 
-// Role Lookup Module (Dynamic ID fetching)
-module roleLookup 'modules/role_lookup.bicep' = {
-  name: 'deploy-role-lookup'
-  params: {
-    location: location
-  }
-}
+// Role Definition IDs (Defaults are standard Azure IDs)
+// Users with non-standard IDs must override these parameters
+param storageTableRoleDefinitionId string = '0a9a7e1f-b9d0-4cc4-a60d-0319cd74161d'
+param storageBlobRoleDefinitionId string = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+param keyVaultAdminRoleDefinitionId string = '00482a5a-887f-4fb3-b363-3b7fe8e74483'
 
 module network 'modules/network.bicep' = {
   name: 'deploy-network'
@@ -54,8 +52,8 @@ module storage 'modules/storage.bicep' = {
     snetPeId: network.outputs.snetPeId
     pdnsBlobId: network.outputs.pdnsBlobId
     appIdentityPrincipalId: identity.outputs.principalId
-    storageTableRoleDefinitionId: roleLookup.outputs.storageTableRoleDefinitionId
-    storageBlobRoleDefinitionId: roleLookup.outputs.storageBlobRoleDefinitionId
+    storageTableRoleDefinitionId: storageTableRoleDefinitionId
+    storageBlobRoleDefinitionId: storageBlobRoleDefinitionId
   }
 }
 
@@ -68,7 +66,7 @@ module keyvault 'modules/keyvault.bicep' = {
     pdnsVaultId: network.outputs.pdnsVaultId
     appIdentityPrincipalId: identity.outputs.principalId
     tenantId: subscription().tenantId
-    keyVaultAdminRoleDefinitionId: roleLookup.outputs.keyVaultAdminRoleDefinitionId
+    keyVaultAdminRoleDefinitionId: keyVaultAdminRoleDefinitionId
   }
 }
 
