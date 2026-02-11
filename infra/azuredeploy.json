@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "5674487669375829637"
+      "templateHash": "2172966919425919066"
     }
   },
   "parameters": {
@@ -25,24 +25,107 @@
     },
     "vwanHubRg": {
       "type": "string"
-    },
-    "storageTableRoleDefinitionId": {
-      "type": "string",
-      "defaultValue": "0a9a7e1f-b9d0-4cc4-a60d-0319cd74161d"
-    },
-    "storageBlobRoleDefinitionId": {
-      "type": "string",
-      "defaultValue": "ba92f5b4-2d11-453d-a403-e96b0029c9fe"
-    },
-    "keyVaultAdminRoleDefinitionId": {
-      "type": "string",
-      "defaultValue": "00482a5a-887f-4fb3-b363-3b7fe8e74483"
     }
   },
   "variables": {
     "suffix": "[uniqueString(resourceGroup().id)]"
   },
   "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-role-lookup",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "2525937826545817093"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]"
+            },
+            "utcValue": {
+              "type": "string",
+              "defaultValue": "[utcNow()]"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "id-deployment-script",
+              "location": "[parameters('location')]"
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(resourceGroup().id, resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-deployment-script'), 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-deployment-script'), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-deployment-script')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Resources/deploymentScripts",
+              "apiVersion": "2023-08-01",
+              "name": "ds-lookup-roles",
+              "location": "[parameters('location')]",
+              "kind": "AzureCLI",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-deployment-script'))]": {}
+                }
+              },
+              "properties": {
+                "azCliVersion": "2.50.0",
+                "retentionInterval": "P1D",
+                "forceUpdateTag": "[parameters('utcValue')]",
+                "scriptContent": "      echo \"Looking up Role IDs...\"\r\n      \r\n      STORAGE_TABLE_ID=$(az role definition list --name \"Storage Table Data Contributor\" --query \"[0].name\" -o tsv)\r\n      STORAGE_BLOB_ID=$(az role definition list --name \"Storage Blob Data Contributor\" --query \"[0].name\" -o tsv)\r\n      KV_ADMIN_ID=$(az role definition list --name \"Key Vault Administrator\" --query \"[0].name\" -o tsv)\r\n\r\n      # Handle cases where roles might not be found (fallback or error)\r\n      if [ -z \"$STORAGE_TABLE_ID\" ]; then echo \"Error: Storage Table role not found\"; exit 1; fi\r\n      if [ -z \"$STORAGE_BLOB_ID\" ]; then echo \"Error: Storage Blob role not found\"; exit 1; fi\r\n      if [ -z \"$KV_ADMIN_ID\" ]; then echo \"Error: Key Vault Admin role not found\"; exit 1; fi\r\n\r\n      # Output JSON\r\n      echo \"{\\\"storageTableRoleDefinitionId\\\": \\\"$STORAGE_TABLE_ID\\\", \\\"storageBlobRoleDefinitionId\\\": \\\"$STORAGE_BLOB_ID\\\", \\\"keyVaultAdminRoleDefinitionId\\\": \\\"$KV_ADMIN_ID\\\"}\" > $AZ_SCRIPTS_OUTPUT_PATH\r\n    "
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceGroup().id, resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-deployment-script'), 'acdd72a7-3385-48ef-bd42-f606fba81ae7'))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-deployment-script')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "storageTableRoleDefinitionId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deploymentScripts', 'ds-lookup-roles'), '2023-08-01').outputs.storageTableRoleDefinitionId]"
+            },
+            "storageBlobRoleDefinitionId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deploymentScripts', 'ds-lookup-roles'), '2023-08-01').outputs.storageBlobRoleDefinitionId]"
+            },
+            "keyVaultAdminRoleDefinitionId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deploymentScripts', 'ds-lookup-roles'), '2023-08-01').outputs.keyVaultAdminRoleDefinitionId]"
+            }
+          }
+        }
+      }
+    },
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
@@ -427,10 +510,10 @@
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-identity'), '2025-04-01').outputs.principalId.value]"
           },
           "storageTableRoleDefinitionId": {
-            "value": "[parameters('storageTableRoleDefinitionId')]"
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-role-lookup'), '2025-04-01').outputs.storageTableRoleDefinitionId.value]"
           },
           "storageBlobRoleDefinitionId": {
-            "value": "[parameters('storageBlobRoleDefinitionId')]"
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-role-lookup'), '2025-04-01').outputs.storageBlobRoleDefinitionId.value]"
           }
         },
         "template": {
@@ -581,7 +664,8 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', 'deploy-identity')]",
-        "[resourceId('Microsoft.Resources/deployments', 'deploy-network')]"
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-network')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-role-lookup')]"
       ]
     },
     {
@@ -613,7 +697,7 @@
             "value": "[subscription().tenantId]"
           },
           "keyVaultAdminRoleDefinitionId": {
-            "value": "[parameters('keyVaultAdminRoleDefinitionId')]"
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-role-lookup'), '2025-04-01').outputs.keyVaultAdminRoleDefinitionId.value]"
           }
         },
         "template": {
@@ -736,7 +820,8 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', 'deploy-identity')]",
-        "[resourceId('Microsoft.Resources/deployments', 'deploy-network')]"
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-network')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-role-lookup')]"
       ]
     },
     {

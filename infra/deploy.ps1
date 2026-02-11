@@ -1,7 +1,10 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$ResourceGroupName,
-    [string]$Location = "ukwest"
+    [string]$Location = "ukwest",
+    [string]$AppTitle = "NHSApp NAM CA Manager",
+    [string]$VwanHubName = "nhsapp-commonservicesuks-vhub",
+    [string]$VwanHubRg = "nhsapp-commonservicesuks-vwan"
 )
 
 # Connect to Azure if not connected
@@ -21,9 +24,9 @@ Write-Host "Deploying Bicep template..."
 
 $scriptPath = $PSScriptRoot
 $templateFile = Join-Path $scriptPath "bicep\main.bicep"
-$paramFile = Join-Path $scriptPath "bicep\main.bicepparam"
 
 # Lookup Role Definition IDs (for portability)
+# This ensures we use the correct ID for the current subscription environment
 $roleStorageTable = Get-AzRoleDefinition -Name "Storage Table Data Contributor"
 $roleStorageBlob = Get-AzRoleDefinition -Name "Storage Blob Data Contributor"
 $roleKeyVaultAdmin = Get-AzRoleDefinition -Name "Key Vault Administrator"
@@ -32,16 +35,14 @@ $deploymentArgs = @{
     ResourceGroupName       = $ResourceGroupName
     TemplateFile            = $templateFile
     Verbose                 = $true
-    templateParameterObject = @{
+    TemplateParameterObject = @{
+        appTitle                      = $AppTitle
+        vwanHubName                   = $VwanHubName
+        vwanHubRg                     = $VwanHubRg
         storageTableRoleDefinitionId  = $roleStorageTable.Id
         storageBlobRoleDefinitionId   = $roleStorageBlob.Id
         keyVaultAdminRoleDefinitionId = $roleKeyVaultAdmin.Id
     }
-}
-
-if (Test-Path $paramFile) {
-    Write-Host "Using parameter file: $paramFile"
-    $deploymentArgs['TemplateParameterFile'] = $paramFile
 }
 
 New-AzResourceGroupDeployment @deploymentArgs
